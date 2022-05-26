@@ -1,0 +1,17 @@
+DROP DATABASE IF EXISTS jdbc;
+CREATE DATABASE jdbc;
+USE jdbc;
+
+CREATE TABLE lobby(
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(50) NOT NULL
+
+
+);
+
+
+
+
+
+
+
