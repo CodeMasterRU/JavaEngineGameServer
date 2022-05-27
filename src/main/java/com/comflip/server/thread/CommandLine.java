@@ -8,7 +8,7 @@ import java.util.Scanner;
 public class CommandLine implements Runnable {
     private final ServerContainer serverContainer;
 
-    private static boolean startServerSocket = false;
+    private static int statusCodeSocket = 0;
 
     public CommandLine(ServerContainer serverContainer) {
         this.serverContainer = serverContainer;
@@ -18,15 +18,17 @@ public class CommandLine implements Runnable {
     public void run() {
         if (serverContainer.sqlserver.isInit()) {
             System.out.println("Welcome! Type 'help' command for more information");
+            System.out.println("Press 'Enter' to continue");
         }
 
         Scanner scanner = new Scanner(System.in);
         while (serverContainer.isRunning()) {
-            System.out.print("> ");
             String command;
             if ((command = scanner.nextLine()) != null) {
                 try {
                     this.readLine(command);
+                    System.out.print("> ");
+
                 } catch (SQLException e) {
                     System.out.println("Error! " + e);
                 }
@@ -37,21 +39,36 @@ public class CommandLine implements Runnable {
     private void readLine(String command) throws SQLException {
         switch (command) {
             case "help" -> {
-                System.out.println("start   -> Starting the socket server");
-                System.out.println("remove  -> Removing the server database");
-                System.out.println("clear   -> Cleaning up the database");
-                System.out.println("create  -> Creating a database");
+                System.out.println("              SERVER SOCKET             ");
+                System.out.println("----------------------------------------");
+                System.out.println("start   ->    Starting the socket server");
+                System.out.println("stop    ->    Stops the socket server");
+                System.out.println();
+                System.out.println("               SERVER SQL               ");
+                System.out.println("----------------------------------------");
+                System.out.println("remove  ->  Removing the server database");
+                System.out.println("clear   ->  Cleaning up the database");
+                System.out.println("create  ->  Creating a database");
             }
 
             case "remove" -> {
-                serverContainer.sqlserver.remove();
-                System.out.println("Done! Database is removed");
+                if (serverContainer.sqlserver.isInit()) {
+                    serverContainer.sqlserver.remove();
+                    System.out.println("Done! Database is removed");
+                } else {
+                    System.out.println("Error! The database does not exist. You must create it");
+                }
             }
 
             case "clear" -> {
-                serverContainer.sqlserver.remove();
-                serverContainer.sqlserver.create();
-                System.out.println("Done! Database is clean up");
+                if (serverContainer.sqlserver.isInit()) {
+                    serverContainer.sqlserver.remove();
+                    serverContainer.sqlserver.create();
+                    System.out.println("Done! Database is clean up");
+                } else {
+                    System.out.println("Error! The database does not exist. You must create it");
+                }
+
             }
 
             case "create" -> {
@@ -61,9 +78,19 @@ public class CommandLine implements Runnable {
 
             case "start" -> {
                 if (serverContainer.sqlserver.isInit()) {
-                    startServerSocket = true;
+                    statusCodeSocket = 2; // Code 2 is active
+                } else if (statusCodeSocket == 2) {
+                    System.out.println("Error! ServerClusterSocket is already active");
                 } else {
                     System.out.println("Error! The database does not exist. You must create it");
+                }
+            }
+
+            case "stop" -> {
+                if (statusCodeSocket == 2) {
+                    statusCodeSocket = 1; // Code 1 is disabled
+                } else {
+                    System.out.println("Error! ServerClusterSocket is not running");
                 }
             }
 
@@ -77,7 +104,7 @@ public class CommandLine implements Runnable {
         }
     }
 
-    public static boolean isStartServerSocket() {
-        return startServerSocket;
+    public static int statucCodeSocket() {
+        return statusCodeSocket;
     }
 }

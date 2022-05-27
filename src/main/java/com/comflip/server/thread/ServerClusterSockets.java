@@ -15,49 +15,44 @@ public class ServerClusterSockets implements Runnable {
 
     private ServerSocket serverSocket;
 
-    public ServerClusterSockets(ServerContainer serverContainer)  {
+    public ServerClusterSockets(ServerContainer serverContainer) throws IOException {
         this.serverContainer = serverContainer;
     }
 
     @Override
     public void run() {
-        while (serverContainer.isRunning()){
-            if (CommandLine.isStartServerSocket()){
-                try {
-                    this.start(5555);
-                } catch (IOException e) {
-                    System.out.println("Error! " + e);
+        while (serverContainer.isRunning()) {
+            try {
+                if (CommandLine.statucCodeSocket() == 2 && serverContainer.sqlserver.isInit()) {
+                    this.start();
                 }
+            } catch (Exception e) {
+                System.out.println("Error! " + e);
             }
         }
 
     }
 
-    private void start(int port) throws IOException {
-        this.serverSocket = new ServerSocket(port);
-        System.out.println("\n" + this.getClass().getSimpleName() + ": Listening on port " + port);
+    private void start() throws Exception {
+        serverSocket = new ServerSocket(5555);
+        System.out.println("\b\b" + this.getClass().getSimpleName() + ": Listening on port " + 5555);
 
         while (!serverSocket.isClosed()) {
             new ClientHandler(serverSocket.accept(), serverContainer.sqlserver).run();
+
+            if (CommandLine.statucCodeSocket() == 1 || !serverContainer.sqlserver.isInit()) {
+                this.stop();
+            }
         }
     }
 
     public void stop() throws Exception {
-        System.out.println("\n" + this.getClass().getSimpleName() + ": Closing socket...");
+        System.out.println("\b\b" + this.getClass().getSimpleName() + ": Closing socket...");
         serverSocket.close();
     }
 
 
-    private static class ClientHandler implements Runnable {
-        private final Socket clientSocket;
-
-        private final SQL sqlserver;
-
-        public ClientHandler(Socket clientSocket, SQL sqlserver) {
-            this.clientSocket = clientSocket;
-            this.sqlserver = sqlserver;
-        }
-
+    private record ClientHandler(Socket clientSocket, SQL sqlserver) implements Runnable {
         @Override
         public void run() {
             try {
@@ -89,10 +84,41 @@ public class ServerClusterSockets implements Runnable {
                             } catch (SQLException e) {
                                 System.out.println("Error! " + e);
 
-                                out.write("This alias already exists");
+                                out.write("This user already exists");
                                 out.newLine();
                                 out.flush();
                             }
+                            con.close();
+                        }
+
+                        case "login-account" -> {
+                            String username = splitInputLine[1].split(":")[0];
+                            String password = splitInputLine[1].split(":")[1];
+
+                            Connection con = this.sqlserver.openConnection();
+
+                            String selectUser = "SELECT * FROM user WHERE username = ? AND password = ?";
+
+                            try (PreparedStatement addUser = con.prepareStatement(selectUser)) {
+                                addUser.setString(1, username);
+                                addUser.setString(2, password);
+
+                                if (addUser.executeQuery().next()){
+                                    out.write("Account is exist!");
+                                } else {
+                                    out.write("Wrong password or username");
+                                }
+
+                                out.newLine();
+                                out.flush();
+                            } catch (SQLException e) {
+                                System.out.println("Error! " + e);
+
+                                out.write("Wrong password or username");
+                                out.newLine();
+                                out.flush();
+                            }
+                            con.close();
                         }
 
                         default -> {
