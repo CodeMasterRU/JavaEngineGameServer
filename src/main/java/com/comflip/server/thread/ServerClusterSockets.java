@@ -1,29 +1,44 @@
-package com.comflip.server;
+package com.comflip.server.thread;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import com.comflip.server.SQL;
+import com.comflip.server.ServerContainer;
+
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class ServerClusterSockets {
-    private ServerSocket serverSocket;
-    private final SQL sqlserver;
+public class ServerClusterSockets implements Runnable {
+    private final ServerContainer serverContainer;
 
-    public ServerClusterSockets(SQL sqlserver) {
-        this.sqlserver = sqlserver;
+    private ServerSocket serverSocket;
+
+    public ServerClusterSockets(ServerContainer serverContainer)  {
+        this.serverContainer = serverContainer;
     }
 
-    public void start(int port) throws Exception {
-        serverSocket = new ServerSocket(port);
+    @Override
+    public void run() {
+        while (serverContainer.isRunning()){
+            if (CommandLine.isStartServerSocket()){
+                try {
+                    this.start(5555);
+                } catch (IOException e) {
+                    System.out.println("Error! " + e);
+                }
+            }
+        }
+
+    }
+
+    private void start(int port) throws IOException {
+        this.serverSocket = new ServerSocket(port);
         System.out.println("\n" + this.getClass().getSimpleName() + ": Listening on port " + port);
 
         while (!serverSocket.isClosed()) {
-            new ClientHandler(serverSocket.accept(), this.sqlserver).start();
+            new ClientHandler(serverSocket.accept(), serverContainer.sqlserver).run();
         }
     }
 
@@ -32,7 +47,8 @@ public class ServerClusterSockets {
         serverSocket.close();
     }
 
-    private static class ClientHandler extends Thread {
+
+    private static class ClientHandler implements Runnable {
         private final Socket clientSocket;
 
         private final SQL sqlserver;
@@ -42,6 +58,7 @@ public class ServerClusterSockets {
             this.sqlserver = sqlserver;
         }
 
+        @Override
         public void run() {
             try {
                 BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
@@ -59,18 +76,22 @@ public class ServerClusterSockets {
 
                             Connection con = this.sqlserver.openConnection();
 
-                            String insertUser = "INSERT INTO user (username, password) VALUES ?, ?";
+                            String insertUser = "INSERT INTO user (username, password) VALUES (?, ?)";
 
-                            try (PreparedStatement addUser = con.prepareStatement(insertUser)){
-                                addUser.setString(1,username);
-                                addUser.setString(2,password);
+                            try (PreparedStatement addUser = con.prepareStatement(insertUser)) {
+                                addUser.setString(1, username);
+                                addUser.setString(2, password);
                                 addUser.executeUpdate();
 
                                 out.write("Account is created!");
                                 out.newLine();
                                 out.flush();
-                            } catch (SQLException e){
+                            } catch (SQLException e) {
                                 System.out.println("Error! " + e);
+
+                                out.write("This alias already exists");
+                                out.newLine();
+                                out.flush();
                             }
                         }
 
