@@ -4,7 +4,6 @@ import com.comflip.server.thread.CommandLine;
 import com.comflip.server.thread.ServerClusterSockets;
 
 import java.io.IOException;
-import java.util.Scanner;
 
 public class ServerContainer {
     volatile boolean running = true;
@@ -13,7 +12,6 @@ public class ServerContainer {
     Thread serverSocketsThread;
 
     public final SQL sqlserver = new SQL("127.0.0.1", "3306");
-
 
     public ServerContainer() {
     }
@@ -29,6 +27,6 @@ public class ServerContainer {
     }
 
     public boolean isRunning() {
-        return running;
+        return this.running;
     }
 }

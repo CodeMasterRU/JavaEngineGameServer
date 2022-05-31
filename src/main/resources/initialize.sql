@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS user (
     id INT(11) NOT NULL AUTO_INCREMENT,
     username VARCHAR(50) NOT NULL UNIQUE,
     password TEXT NOT NULL,
+    online BIT NOT NULL DEFAULT 0,
+    creationDate DATE NOT NULL,
+    sessionID VARCHAR(10) NULL UNIQUE,
     PRIMARY KEY (id)
 );
 

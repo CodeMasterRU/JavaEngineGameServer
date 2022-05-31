@@ -2,13 +2,13 @@ package com.comflip.server.thread;
 
 import com.comflip.server.SQL;
 import com.comflip.server.ServerContainer;
+import com.comflip.server.User;
+import com.comflip.server.security.Hash;
 
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.*;
 
 public class ServerClusterSockets implements Runnable {
     private final ServerContainer serverContainer;
@@ -71,20 +71,21 @@ public class ServerClusterSockets implements Runnable {
 
                             Connection con = this.sqlserver.openConnection();
 
-                            String insertUser = "INSERT INTO user (username, password) VALUES (?, ?)";
+                            String insertUser = "INSERT INTO user (username, password, creationDate) VALUES (?, ?, ?)";
 
-                            try (PreparedStatement addUser = con.prepareStatement(insertUser)) {
-                                addUser.setString(1, username);
-                                addUser.setString(2, password);
-                                addUser.executeUpdate();
+                            try (PreparedStatement stmt = con.prepareStatement(insertUser)) {
+                                stmt.setDate(3, new Date(new java.util.Date().getTime()));
+                                stmt.setString(1, username);
+                                stmt.setString(2, Hash.generateHashPassword(password));
+                                stmt.executeUpdate();
 
-                                out.write("Account is created!");
+                                out.write("msg=Account is created!");
                                 out.newLine();
                                 out.flush();
                             } catch (SQLException e) {
                                 System.out.println("Error! " + e);
 
-                                out.write("This user already exists");
+                                out.write("msg=This user already exists");
                                 out.newLine();
                                 out.flush();
                             }
@@ -97,28 +98,67 @@ public class ServerClusterSockets implements Runnable {
 
                             Connection con = this.sqlserver.openConnection();
 
-                            String selectUser = "SELECT * FROM user WHERE username = ? AND password = ?";
+                            String selectUser = "SELECT * FROM user WHERE username = ?";
 
-                            try (PreparedStatement addUser = con.prepareStatement(selectUser)) {
-                                addUser.setString(1, username);
-                                addUser.setString(2, password);
+                            try (PreparedStatement selectStmt = con.prepareStatement(selectUser)) {
+                                selectStmt.setString(1, username);
+                                ResultSet rep = selectStmt.executeQuery();
 
-                                if (addUser.executeQuery().next()){
-                                    out.write("Account is exist!");
+                                if (rep.next() && Hash.validate(password, rep.getString("password"))) {
+                                    User user = new User(rep);
+
+                                    boolean notSession = true;
+                                    while (notSession) {
+                                        try {
+                                            user.setSessionID();
+
+                                            String updateUser = "UPDATE user SET sessionID = ?, online = 1 WHERE username = '" + username + "'";
+                                            PreparedStatement updateStmt = con.prepareStatement(updateUser);
+
+                                            updateStmt.setString(1, user.getSessionID());
+                                            updateStmt.executeUpdate();
+                                            notSession = false;
+
+                                        } catch (SQLException ignored) {
+                                        }
+                                    }
+
+                                    out.write("msg=Account is exist!" +
+                                            "&" +
+                                            "data=" + user.getUsername() + ":" + user.getSessionID() +
+                                            "&" +
+                                            "isAuth=true");
                                 } else {
-                                    out.write("Wrong password or username");
+                                    out.write("msg=Wrong password or username" +
+                                            "&" +
+                                            "isAuth=false");
                                 }
 
                                 out.newLine();
                                 out.flush();
                             } catch (SQLException e) {
                                 System.out.println("Error! " + e);
+                                e.printStackTrace();
 
-                                out.write("Wrong password or username");
+                                out.write("msg=Wrong password or username");
                                 out.newLine();
                                 out.flush();
                             }
                             con.close();
+                        }
+
+                        case "logout" -> {
+                            String username = splitInputLine[1].split(":")[0];
+
+                            Connection con = this.sqlserver.openConnection();
+                            String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = '" + username + "'";
+
+                            PreparedStatement updateStmt = con.prepareStatement(updateUser);
+                            updateStmt.executeUpdate();
+
+                            out.write("");
+                            out.newLine();
+                            out.flush();
                         }
 
                         default -> {
