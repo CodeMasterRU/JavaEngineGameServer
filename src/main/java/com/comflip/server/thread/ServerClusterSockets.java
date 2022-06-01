@@ -27,7 +27,8 @@ public class ServerClusterSockets implements Runnable {
                     this.start();
                 }
             } catch (Exception e) {
-                System.out.println("Error! " + e);
+                System.out.println("\nError!");
+                e.printStackTrace();
             }
         }
 
@@ -137,10 +138,12 @@ public class ServerClusterSockets implements Runnable {
                                 out.newLine();
                                 out.flush();
                             } catch (SQLException e) {
-                                System.out.println("Error! " + e);
+                                System.out.println("\nError!");
                                 e.printStackTrace();
 
-                                out.write("msg=Wrong password or username");
+                                out.write("msg=Wrong password or username" +
+                                        "&" +
+                                        "isAuth=false");
                                 out.newLine();
                                 out.flush();
                             }
@@ -161,6 +164,50 @@ public class ServerClusterSockets implements Runnable {
                             out.flush();
                         }
 
+                        case "create-match" -> {
+                            String idMatch = splitInputLine[1];
+
+                            Connection con = this.sqlserver.openConnection();
+
+                            String insertMatch = "INSERT INTO lobby (idMatch) VALUES (?)";
+
+                            try (PreparedStatement stmt = con.prepareStatement(insertMatch)) {
+                                stmt.setString(1, idMatch);
+                                stmt.executeUpdate();
+
+                                out.write("");
+                                out.newLine();
+                                out.flush();
+                            } catch (Exception ignored) {
+                                ignored.printStackTrace();
+                            }
+
+                            con.close();
+                        }
+
+                        case "lobby" -> {
+                            Connection con = this.sqlserver.openConnection();
+
+                            String selectMatch = "SELECT * FROM lobby";
+
+                            try (PreparedStatement stmt = con.prepareStatement(selectMatch)) {
+                                ResultSet resultSet = stmt.executeQuery();
+                                StringBuilder reponse = new StringBuilder();
+
+                                while (resultSet.next()) {
+                                    reponse.append("row").append(resultSet.getRow()).append("=").append(resultSet.getInt("id")).append(":").append(resultSet.getString("idMatch")).append("&");
+                                }
+
+                                out.write(reponse.toString());
+                                out.newLine();
+                                out.flush();
+                            } catch (Exception ignored) {
+                                ignored.printStackTrace();
+                            }
+
+                            con.close();
+                        }
+
                         default -> {
                             out.write("Error! Unknown command!");
                             out.newLine();
@@ -174,7 +221,8 @@ public class ServerClusterSockets implements Runnable {
                 clientSocket.close();
 
             } catch (Exception e) {
-                System.out.println("Error! " + e);
+                System.out.println("\nError!");
+                e.printStackTrace();
             }
         }
     }

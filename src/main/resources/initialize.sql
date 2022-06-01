@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS user (
     PRIMARY KEY (id)
 );
 
+CREATE TABLE IF NOT EXISTS lobby (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    idMatch VARCHAR(10) NOT NULL,
+    PRIMARY KEY(id)
+);
+
 
 
 
