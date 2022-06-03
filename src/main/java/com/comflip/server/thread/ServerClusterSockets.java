@@ -2,7 +2,7 @@ package com.comflip.server.thread;
 
 import com.comflip.server.SQL;
 import com.comflip.server.ServerContainer;
-import com.comflip.server.User;
+import com.comflip.server.model.User;
 import com.comflip.server.security.Hash;
 
 import java.io.*;
@@ -162,6 +162,8 @@ public class ServerClusterSockets implements Runnable {
                             out.write("");
                             out.newLine();
                             out.flush();
+
+                            con.close();
                         }
 
                         case "create-match" -> {
@@ -179,7 +181,6 @@ public class ServerClusterSockets implements Runnable {
                                 out.newLine();
                                 out.flush();
                             } catch (Exception ignored) {
-                                ignored.printStackTrace();
                             }
 
                             con.close();
@@ -192,20 +193,31 @@ public class ServerClusterSockets implements Runnable {
 
                             try (PreparedStatement stmt = con.prepareStatement(selectMatch)) {
                                 ResultSet resultSet = stmt.executeQuery();
-                                StringBuilder reponse = new StringBuilder();
+                                StringBuilder response = new StringBuilder();
 
                                 while (resultSet.next()) {
-                                    reponse.append("row").append(resultSet.getRow()).append("=").append(resultSet.getInt("id")).append(":").append(resultSet.getString("idMatch")).append("&");
+                                    response.append("row").append(resultSet.getRow()).append("=").append(resultSet.getInt("id")).append(":").append(resultSet.getString("idMatch")).append("&");
                                 }
 
-                                out.write(reponse.toString());
+                                out.write(response.toString());
                                 out.newLine();
                                 out.flush();
                             } catch (Exception ignored) {
-                                ignored.printStackTrace();
                             }
 
                             con.close();
+                        }
+
+                        case "ping" -> {
+                            String username = splitInputLine[1].split(":")[0];
+                            try {
+                                SessionTimer.hashSession.put(username, String.valueOf(SessionTimer.second));
+                            } catch (Exception ignored) {
+                            }
+
+                            out.write("");
+                            out.newLine();
+                            out.flush();
                         }
 
                         default -> {
@@ -214,6 +226,8 @@ public class ServerClusterSockets implements Runnable {
                             out.flush();
                         }
                     }
+
+
                 }
 
                 in.close();

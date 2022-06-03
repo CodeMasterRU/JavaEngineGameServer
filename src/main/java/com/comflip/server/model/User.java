@@ -1,4 +1,4 @@
-package com.comflip.server;
+package com.comflip.server.model;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

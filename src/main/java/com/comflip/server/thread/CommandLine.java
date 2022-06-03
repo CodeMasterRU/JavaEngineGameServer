@@ -28,7 +28,6 @@ public class CommandLine implements Runnable {
                 try {
                     this.readLine(command);
                     System.out.print("> ");
-
                 } catch (SQLException e) {
                     System.out.println("Error! " + e);
                 }
