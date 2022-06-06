@@ -15,9 +15,6 @@ public class ServerContainer {
 
     public final SQL sqlserver = new SQL("127.0.0.1", "3306");
 
-    public ServerContainer() {
-    }
-
     public void start() throws IOException {
         CommandLine commandLine = new CommandLine(this);
         commandLineThread = new Thread(commandLine);

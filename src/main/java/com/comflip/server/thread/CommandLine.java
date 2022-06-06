@@ -103,7 +103,7 @@ public class CommandLine implements Runnable {
         }
     }
 
-    public static int statucCodeSocket() {
+    public static int statusCodeSocket() {
         return statusCodeSocket;
     }
 }

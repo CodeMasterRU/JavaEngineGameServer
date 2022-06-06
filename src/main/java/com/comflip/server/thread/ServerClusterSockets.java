@@ -1,9 +1,9 @@
 package com.comflip.server.thread;
 
-import com.comflip.server.SQL;
 import com.comflip.server.ServerContainer;
 import com.comflip.server.model.User;
 import com.comflip.server.security.Hash;
+import com.comflip.server.util.UID;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -15,6 +15,8 @@ public class ServerClusterSockets implements Runnable {
 
     private ServerSocket serverSocket;
 
+    private Connection con;
+
     public ServerClusterSockets(ServerContainer serverContainer) throws IOException {
         this.serverContainer = serverContainer;
     }
@@ -23,7 +25,8 @@ public class ServerClusterSockets implements Runnable {
     public void run() {
         while (serverContainer.isRunning()) {
             try {
-                if (CommandLine.statucCodeSocket() == 2 && serverContainer.sqlserver.isInit()) {
+                if (CommandLine.statusCodeSocket() == 2 && serverContainer.sqlserver.isInit()) {
+                    this.con = serverContainer.sqlserver.openConnection();
                     this.start();
                 }
             } catch (Exception e) {
@@ -39,9 +42,9 @@ public class ServerClusterSockets implements Runnable {
         System.out.println("\b\b" + this.getClass().getSimpleName() + ": Listening on port " + 5555);
 
         while (!serverSocket.isClosed()) {
-            new ClientHandler(serverSocket.accept(), serverContainer.sqlserver).run();
+            new ClientHandler(serverSocket.accept(), this.con).run();
 
-            if (CommandLine.statucCodeSocket() == 1 || !serverContainer.sqlserver.isInit()) {
+            if (CommandLine.statusCodeSocket() == 1 || !serverContainer.sqlserver.isInit()) {
                 this.stop();
             }
         }
@@ -50,15 +53,17 @@ public class ServerClusterSockets implements Runnable {
     public void stop() throws Exception {
         System.out.println("\b\b" + this.getClass().getSimpleName() + ": Closing socket...");
         serverSocket.close();
+        this.con.close();
     }
 
 
-    private record ClientHandler(Socket clientSocket, SQL sqlserver) implements Runnable {
+    private record ClientHandler(Socket clientSocket, Connection con) implements Runnable {
         @Override
         public void run() {
             try {
                 BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                clientSocket.setSoTimeout(10000);
 
                 String inputLine;
                 String[] splitInputLine;
@@ -69,8 +74,6 @@ public class ServerClusterSockets implements Runnable {
                         case "create-account" -> {
                             String username = splitInputLine[1].split(":")[0];
                             String password = splitInputLine[1].split(":")[1];
-
-                            Connection con = this.sqlserver.openConnection();
 
                             String insertUser = "INSERT INTO user (username, password, creationDate) VALUES (?, ?, ?)";
 
@@ -90,14 +93,11 @@ public class ServerClusterSockets implements Runnable {
                                 out.newLine();
                                 out.flush();
                             }
-                            con.close();
                         }
 
                         case "login-account" -> {
                             String username = splitInputLine[1].split(":")[0];
                             String password = splitInputLine[1].split(":")[1];
-
-                            Connection con = this.sqlserver.openConnection();
 
                             String selectUser = "SELECT * FROM user WHERE username = ?";
 
@@ -111,8 +111,6 @@ public class ServerClusterSockets implements Runnable {
                                     boolean notSession = true;
                                     while (notSession) {
                                         try {
-                                            user.setSessionID();
-
                                             String updateUser = "UPDATE user SET sessionID = ?, online = 1 WHERE username = '" + username + "'";
                                             PreparedStatement updateStmt = con.prepareStatement(updateUser);
 
@@ -147,13 +145,11 @@ public class ServerClusterSockets implements Runnable {
                                 out.newLine();
                                 out.flush();
                             }
-                            con.close();
                         }
 
                         case "logout" -> {
                             String username = splitInputLine[1].split(":")[0];
 
-                            Connection con = this.sqlserver.openConnection();
                             String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = '" + username + "'";
 
                             PreparedStatement updateStmt = con.prepareStatement(updateUser);
@@ -162,19 +158,16 @@ public class ServerClusterSockets implements Runnable {
                             out.write("");
                             out.newLine();
                             out.flush();
-
-                            con.close();
                         }
 
                         case "create-match" -> {
-                            String idMatch = splitInputLine[1];
+                            String hostUsername = splitInputLine[1];
 
-                            Connection con = this.sqlserver.openConnection();
-
-                            String insertMatch = "INSERT INTO lobby (idMatch) VALUES (?)";
+                            String insertMatch = "INSERT INTO lobby (idMatch, hostId) VALUES (?, (SELECT id FROM user WHERE username = ?))";
 
                             try (PreparedStatement stmt = con.prepareStatement(insertMatch)) {
-                                stmt.setString(1, idMatch);
+                                stmt.setString(1, UID.setSession());
+                                stmt.setString(2, hostUsername);
                                 stmt.executeUpdate();
 
                                 out.write("");
@@ -182,33 +175,35 @@ public class ServerClusterSockets implements Runnable {
                                 out.flush();
                             } catch (Exception ignored) {
                             }
-
-                            con.close();
                         }
 
                         case "lobby" -> {
-                            Connection con = this.sqlserver.openConnection();
-
-                            String selectMatch = "SELECT * FROM lobby";
+                            String selectMatch = "SELECT idMatch, username FROM lobby INNER JOIN user ON lobby.hostId = user.id WHERE isOpen = 1";
 
                             try (PreparedStatement stmt = con.prepareStatement(selectMatch)) {
                                 ResultSet resultSet = stmt.executeQuery();
                                 StringBuilder response = new StringBuilder();
 
                                 while (resultSet.next()) {
-                                    response.append("row").append(resultSet.getRow()).append("=").append(resultSet.getInt("id")).append(":").append(resultSet.getString("idMatch")).append("&");
+                                    response.append("row" + resultSet.getRow() + "=" +
+                                            resultSet.getString("idMatch") + ":" +
+                                            resultSet.getString("username") +
+                                            "&");
                                 }
 
-                                out.write(response.toString());
+                                if (response.length() == 0) {
+                                    out.write("msg=No open matches found");
+                                } else {
+                                    out.write(response.toString());
+                                }
+
                                 out.newLine();
                                 out.flush();
                             } catch (Exception ignored) {
                             }
-
-                            con.close();
                         }
 
-                        case "ping" -> {
+                        case "isOnline" -> {
                             String username = splitInputLine[1].split(":")[0];
                             try {
                                 SessionTimer.hashSession.put(username, String.valueOf(SessionTimer.second));
