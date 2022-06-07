@@ -166,11 +166,13 @@ public class ServerClusterSockets implements Runnable {
                             String insertMatch = "INSERT INTO lobby (idMatch, hostId) VALUES (?, (SELECT id FROM user WHERE username = ?))";
 
                             try (PreparedStatement stmt = con.prepareStatement(insertMatch)) {
-                                stmt.setString(1, UID.setSession());
+                                String idMatch = UID.setSession();
+
+                                stmt.setString(1, idMatch);
                                 stmt.setString(2, hostUsername);
                                 stmt.executeUpdate();
 
-                                out.write("");
+                                out.write("idMatch=" + idMatch);
                                 out.newLine();
                                 out.flush();
                             } catch (Exception ignored) {
@@ -213,6 +215,81 @@ public class ServerClusterSockets implements Runnable {
                             out.write("");
                             out.newLine();
                             out.flush();
+                        }
+
+                        case "cancel-match" -> {
+                            String idMatch = splitInputLine[1];
+
+                            String deleteMatch = "DELETE FROM lobby WHERE idMatch = ?";
+
+                            try (PreparedStatement stmt = con.prepareStatement(deleteMatch)) {
+                                stmt.setString(1, idMatch);
+                                stmt.executeUpdate();
+
+                                out.write("");
+                                out.newLine();
+                                out.flush();
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        case "isGuest" -> {
+                            String idMatch = splitInputLine[1];
+
+                            String deleteMatch = "SELECT guestId FROM lobby WHERE idMatch = ?";
+
+                            try (PreparedStatement stmt = con.prepareStatement(deleteMatch)) {
+                                stmt.setString(1, idMatch);
+                                ResultSet resultSet = stmt.executeQuery();
+
+                                if (resultSet.next() && resultSet.getString("guestId") == null) {
+                                    out.write("guestName=null");
+                                } else {
+                                    String guestName = "SELECT username FROM user WHERE id = ?";
+
+                                    try (PreparedStatement stmtName = con.prepareStatement(guestName)) {
+                                        stmtName.setString(1, resultSet.getString("guestId"));
+                                        ResultSet resultSetName = stmtName.executeQuery();
+                                        resultSetName.next();
+
+                                        out.write("guestName=" + resultSetName.getString("username"));
+                                    } catch (Exception ignored) {
+                                    }
+                                }
+
+                                out.newLine();
+                                out.flush();
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        case "join" -> {
+                            String username = splitInputLine[1].split(":")[0];
+                            String idMatch = splitInputLine[1].split(":")[1];
+
+
+                            String updateMatch = "UPDATE lobby SET guestId = (SELECT id FROM user WHERE username = ?) WHERE idMatch = ?";
+
+                            try (PreparedStatement stmt = con.prepareStatement(updateMatch)) {
+                                stmt.setString(1, username);
+                                stmt.setString(2, idMatch);
+                                stmt.executeUpdate();
+
+                                String selectHost = "SELECT username FROM lobby INNER JOIN user ON lobby.hostId = user.id WHERE idMatch = ?";
+                                try (PreparedStatement stmtHost = con.prepareStatement(selectHost)) {
+                                    stmtHost.setString(1, idMatch);
+                                    ResultSet resultSetHost = stmtHost.executeQuery();
+                                    if (resultSetHost.next()){
+                                        out.write("msg=done&userHost="+resultSetHost.getString("username"));
+                                    }
+                                } catch (Exception ignored) {
+                                }
+
+                                out.newLine();
+                                out.flush();
+
+                            } catch (Exception ignored) {
+                            }
                         }
 
                         default -> {
