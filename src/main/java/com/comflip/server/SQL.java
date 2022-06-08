@@ -47,7 +47,7 @@ public class SQL {
 
             System.out.println("\nInitialize to database is finished!\n");
 
-            this.closeConnection();
+            this.connection.close();
 
             this.isInit = true;
         } catch (SQLException | IOException | URISyntaxException e) {
@@ -68,10 +68,6 @@ public class SQL {
         return this.connection = DriverManager.getConnection(
                 "jdbc:mysql://" + this.ip + ":" + this.port + "/jdbc", "root", ""
         );
-    }
-
-    public void closeConnection() throws SQLException {
-        this.connection.close();
     }
 
     private String[] sqlReader(String path) throws IOException, URISyntaxException {

@@ -10,14 +10,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.*;
 
-public class ServerClusterSockets implements Runnable {
+public class ServerSocketTCP implements Runnable {
     private final ServerContainer serverContainer;
-
     private ServerSocket serverSocket;
 
-    private Connection con;
 
-    public ServerClusterSockets(ServerContainer serverContainer) throws IOException {
+    public ServerSocketTCP(ServerContainer serverContainer) throws IOException {
         this.serverContainer = serverContainer;
     }
 
@@ -25,8 +23,7 @@ public class ServerClusterSockets implements Runnable {
     public void run() {
         while (serverContainer.isRunning()) {
             try {
-                if (CommandLine.statusCodeSocket() == 2 && serverContainer.sqlserver.isInit()) {
-                    this.con = serverContainer.sqlserver.openConnection();
+                if (CommandLine.statusCodeSocket() == 2 && ServerContainer.sqlserver.isInit()) {
                     this.start();
                 }
             } catch (Exception e) {
@@ -39,12 +36,12 @@ public class ServerClusterSockets implements Runnable {
 
     private void start() throws Exception {
         serverSocket = new ServerSocket(5555);
+
         System.out.println("\b\b" + this.getClass().getSimpleName() + ": Listening on port " + 5555);
 
         while (!serverSocket.isClosed()) {
-            new ClientHandler(serverSocket.accept(), this.con).run();
-
-            if (CommandLine.statusCodeSocket() == 1 || !serverContainer.sqlserver.isInit()) {
+            new ClientHandlerTCP(serverSocket.accept()).run();
+            if (CommandLine.statusCodeSocket() == 1 || !ServerContainer.sqlserver.isInit()) {
                 this.stop();
             }
         }
@@ -53,11 +50,9 @@ public class ServerClusterSockets implements Runnable {
     public void stop() throws Exception {
         System.out.println("\b\b" + this.getClass().getSimpleName() + ": Closing socket...");
         serverSocket.close();
-        this.con.close();
     }
 
-
-    private record ClientHandler(Socket clientSocket, Connection con) implements Runnable {
+    private record ClientHandlerTCP(Socket clientSocket) implements Runnable {
         @Override
         public void run() {
             try {
@@ -74,6 +69,7 @@ public class ServerClusterSockets implements Runnable {
                         case "create-account" -> {
                             String username = splitInputLine[1].split(":")[0];
                             String password = splitInputLine[1].split(":")[1];
+                            Connection con = ServerContainer.sqlserver.openConnection();
 
                             String insertUser = "INSERT INTO user (username, password, creationDate) VALUES (?, ?, ?)";
 
@@ -93,11 +89,13 @@ public class ServerClusterSockets implements Runnable {
                                 out.newLine();
                                 out.flush();
                             }
+                            con.close();
                         }
 
                         case "login-account" -> {
                             String username = splitInputLine[1].split(":")[0];
                             String password = splitInputLine[1].split(":")[1];
+                            Connection con = ServerContainer.sqlserver.openConnection();
 
                             String selectUser = "SELECT * FROM user WHERE username = ?";
 
@@ -145,24 +143,31 @@ public class ServerClusterSockets implements Runnable {
                                 out.newLine();
                                 out.flush();
                             }
+                            con.close();
                         }
 
                         case "logout" -> {
                             String username = splitInputLine[1].split(":")[0];
+                            Connection con = ServerContainer.sqlserver.openConnection();
 
-                            String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = '" + username + "'";
+                            String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = ?";
+
+                            SessionTimer.hashSession.remove(username);
 
                             PreparedStatement updateStmt = con.prepareStatement(updateUser);
+                            updateStmt.setString(1, username);
                             updateStmt.executeUpdate();
 
                             out.write("");
                             out.newLine();
                             out.flush();
+
+                            con.close();
                         }
 
                         case "create-match" -> {
                             String hostUsername = splitInputLine[1];
-
+                            Connection con = ServerContainer.sqlserver.openConnection();
                             String insertMatch = "INSERT INTO lobby (idMatch, hostId) VALUES (?, (SELECT id FROM user WHERE username = ?))";
 
                             try (PreparedStatement stmt = con.prepareStatement(insertMatch)) {
@@ -177,49 +182,12 @@ public class ServerClusterSockets implements Runnable {
                                 out.flush();
                             } catch (Exception ignored) {
                             }
-                        }
-
-                        case "lobby" -> {
-                            String selectMatch = "SELECT idMatch, username FROM lobby INNER JOIN user ON lobby.hostId = user.id WHERE isOpen = 1";
-
-                            try (PreparedStatement stmt = con.prepareStatement(selectMatch)) {
-                                ResultSet resultSet = stmt.executeQuery();
-                                StringBuilder response = new StringBuilder();
-
-                                while (resultSet.next()) {
-                                    response.append("row" + resultSet.getRow() + "=" +
-                                            resultSet.getString("idMatch") + ":" +
-                                            resultSet.getString("username") +
-                                            "&");
-                                }
-
-                                if (response.length() == 0) {
-                                    out.write("msg=No open matches found");
-                                } else {
-                                    out.write(response.toString());
-                                }
-
-                                out.newLine();
-                                out.flush();
-                            } catch (Exception ignored) {
-                            }
-                        }
-
-                        case "isOnline" -> {
-                            String username = splitInputLine[1].split(":")[0];
-                            try {
-                                SessionTimer.hashSession.put(username, String.valueOf(SessionTimer.second));
-                            } catch (Exception ignored) {
-                            }
-
-                            out.write("");
-                            out.newLine();
-                            out.flush();
+                            con.close();
                         }
 
                         case "cancel-match" -> {
                             String idMatch = splitInputLine[1];
-
+                            Connection con = ServerContainer.sqlserver.openConnection();
                             String deleteMatch = "DELETE FROM lobby WHERE idMatch = ?";
 
                             try (PreparedStatement stmt = con.prepareStatement(deleteMatch)) {
@@ -231,11 +199,12 @@ public class ServerClusterSockets implements Runnable {
                                 out.flush();
                             } catch (Exception ignored) {
                             }
+                            con.close();
                         }
 
                         case "isGuest" -> {
                             String idMatch = splitInputLine[1];
-
+                            Connection con = ServerContainer.sqlserver.openConnection();
                             String deleteMatch = "SELECT guestId FROM lobby WHERE idMatch = ?";
 
                             try (PreparedStatement stmt = con.prepareStatement(deleteMatch)) {
@@ -261,14 +230,15 @@ public class ServerClusterSockets implements Runnable {
                                 out.flush();
                             } catch (Exception ignored) {
                             }
+                            con.close();
                         }
 
                         case "join" -> {
                             String username = splitInputLine[1].split(":")[0];
                             String idMatch = splitInputLine[1].split(":")[1];
 
-
-                            String updateMatch = "UPDATE lobby SET guestId = (SELECT id FROM user WHERE username = ?) WHERE idMatch = ?";
+                            Connection con = ServerContainer.sqlserver.openConnection();
+                            String updateMatch = "UPDATE lobby SET guestId = (SELECT id FROM user WHERE username = ?), isOpen = 0 WHERE idMatch = ?";
 
                             try (PreparedStatement stmt = con.prepareStatement(updateMatch)) {
                                 stmt.setString(1, username);
@@ -279,8 +249,8 @@ public class ServerClusterSockets implements Runnable {
                                 try (PreparedStatement stmtHost = con.prepareStatement(selectHost)) {
                                     stmtHost.setString(1, idMatch);
                                     ResultSet resultSetHost = stmtHost.executeQuery();
-                                    if (resultSetHost.next()){
-                                        out.write("msg=done&userHost="+resultSetHost.getString("username"));
+                                    if (resultSetHost.next()) {
+                                        out.write("msg=done&userHost=" + resultSetHost.getString("username"));
                                     }
                                 } catch (Exception ignored) {
                                 }
@@ -290,6 +260,7 @@ public class ServerClusterSockets implements Runnable {
 
                             } catch (Exception ignored) {
                             }
+                            con.close();
                         }
 
                         default -> {
@@ -298,14 +269,11 @@ public class ServerClusterSockets implements Runnable {
                             out.flush();
                         }
                     }
-
-
                 }
 
                 in.close();
                 out.close();
                 clientSocket.close();
-
             } catch (Exception e) {
                 System.out.println("\nError!");
                 e.printStackTrace();

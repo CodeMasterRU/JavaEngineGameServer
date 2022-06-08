@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Map;
 
 public class SessionTimer implements Runnable {
     public static HashMap<String, String> hashSession = new HashMap<>();
@@ -43,16 +44,19 @@ public class SessionTimer implements Runnable {
                 }
             }
 
-            for (String username : hashSession.keySet()) {
-                if (second - Integer.parseInt(hashSession.get(username)) > 10) {
+            for (Map.Entry<String, String> stringStringEntry : hashSession.entrySet()) {
+                if (second - Integer.parseInt(hashSession.get(stringStringEntry.getKey())) > 10) {
                     try {
-                        Connection con = this.serverContainer.sqlserver.openConnection();
-                        String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = '" + username + "'";
+                        Connection con = ServerContainer.sqlserver.openConnection();
+                        String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = ?";
 
                         PreparedStatement updateStmt = con.prepareStatement(updateUser);
+                        updateStmt.setString(1,stringStringEntry.getKey());
                         updateStmt.executeUpdate();
 
                         con.close();
+
+                        hashSession.remove(stringStringEntry.getKey());
                     } catch (SQLException ignored) {
                     }
                 }
