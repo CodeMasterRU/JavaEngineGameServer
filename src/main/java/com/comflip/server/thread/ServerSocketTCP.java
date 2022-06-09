@@ -152,7 +152,7 @@ public class ServerSocketTCP implements Runnable {
 
                             String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = ?";
 
-                            SessionTimer.hashSession.remove(username);
+                            SessionTimer.hashSessionUsers.remove(username);
 
                             PreparedStatement updateStmt = con.prepareStatement(updateUser);
                             updateStmt.setString(1, username);

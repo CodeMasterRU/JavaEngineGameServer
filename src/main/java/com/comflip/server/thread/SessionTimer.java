@@ -8,14 +8,10 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SessionTimer implements Runnable {
-    public static HashMap<String, String> hashSession = new HashMap<>();
+public record SessionTimer(ServerContainer serverContainer) implements Runnable {
+    public static HashMap<String, String> hashSessionUsers = new HashMap<>();
+    public static HashMap<String, String> hashSessionMatch = new HashMap<>();
     public static int second = 0;
-    private final ServerContainer serverContainer;
-
-    public SessionTimer(ServerContainer serverContainer) {
-        this.serverContainer = serverContainer;
-    }
 
     @Override
     public void run() {
@@ -44,19 +40,19 @@ public class SessionTimer implements Runnable {
                 }
             }
 
-            for (Map.Entry<String, String> stringStringEntry : hashSession.entrySet()) {
-                if (second - Integer.parseInt(hashSession.get(stringStringEntry.getKey())) > 10) {
+            for (Map.Entry<String, String> stringStringEntry : hashSessionUsers.entrySet()) {
+                if (second - Integer.parseInt(hashSessionUsers.get(stringStringEntry.getKey())) > 10) {
                     try {
                         Connection con = ServerContainer.sqlserver.openConnection();
                         String updateUser = "UPDATE user SET sessionID = null, online = 0 WHERE username = ?";
 
                         PreparedStatement updateStmt = con.prepareStatement(updateUser);
-                        updateStmt.setString(1,stringStringEntry.getKey());
+                        updateStmt.setString(1, stringStringEntry.getKey());
                         updateStmt.executeUpdate();
 
                         con.close();
 
-                        hashSession.remove(stringStringEntry.getKey());
+                        hashSessionUsers.remove(stringStringEntry.getKey());
                     } catch (SQLException ignored) {
                     }
                 }

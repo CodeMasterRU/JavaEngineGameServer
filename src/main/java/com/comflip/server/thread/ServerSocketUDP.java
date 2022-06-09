@@ -71,7 +71,7 @@ public class ServerSocketUDP implements Runnable {
                     case "isOnline" -> {
                         String username = received.split("=")[1];
                         if (!username.equals("null")) {
-                            SessionTimer.hashSession.put(username, String.valueOf(SessionTimer.second));
+                            SessionTimer.hashSessionUsers.put(username, String.valueOf(SessionTimer.second));
                         }
                         serverSocket.send(packet);
                     }
@@ -101,6 +101,24 @@ public class ServerSocketUDP implements Runnable {
                         } catch (Exception ignored) {
                         }
                         con.close();
+                        serverSocket.send(packet);
+                    }
+
+                    case "updateDataMatch" -> {
+                        String dataMatch = received.split("=")[1];
+
+                        String idMatch = dataMatch.split(":")[0];
+                        String checkerTag = dataMatch.split(":")[1];
+                        String checkerPos = dataMatch.split(":")[2];
+                        String nextTurn = dataMatch.split(":")[3];
+
+                        SessionTimer.hashSessionMatch.put(idMatch, checkerTag + ":" + checkerPos + ":" + nextTurn);
+                    }
+
+                    case "getDataMatch" -> {
+                        String dataMatch = SessionTimer.hashSessionMatch.get(received.split("=")[1]);
+
+                        packet = new DatagramPacket(dataMatch.getBytes(), dataMatch.getBytes().length, address, port);
                         serverSocket.send(packet);
                     }
                 }
