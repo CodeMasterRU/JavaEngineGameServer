@@ -29,8 +29,8 @@ public class ServerSocketUDP implements Runnable {
                     this.start();
                 }
             } catch (Exception e) {
-                System.out.println("\nError!");
-                e.printStackTrace();
+//                System.out.println("\nError!");
+//                e.printStackTrace();
             }
         }
 
@@ -59,6 +59,8 @@ public class ServerSocketUDP implements Runnable {
         @Override
         public void run() {
             try {
+                serverSocket.setSoTimeout(10);
+
                 DatagramPacket packet = new DatagramPacket(buf, buf.length);
                 serverSocket.receive(packet);
 
@@ -113,13 +115,20 @@ public class ServerSocketUDP implements Runnable {
                         String nextTurn = dataMatch.split(":")[3];
 
                         SessionTimer.hashSessionMatch.put(idMatch, checkerTag + ":" + checkerPos + ":" + nextTurn);
-                    }
-
-                    case "getDataMatch" -> {
-                        String dataMatch = SessionTimer.hashSessionMatch.get(received.split("=")[1]);
 
                         packet = new DatagramPacket(dataMatch.getBytes(), dataMatch.getBytes().length, address, port);
                         serverSocket.send(packet);
+                    }
+
+                    case "getDataMatch" -> {
+                        if (SessionTimer.hashSessionMatch.size() != 0){
+                            String dataMatch = SessionTimer.hashSessionMatch.get(received.split("=")[1]);
+                            packet = new DatagramPacket(dataMatch.getBytes(), dataMatch.getBytes().length, address, port);
+                        } else {
+                            packet = new DatagramPacket("".getBytes(), "".getBytes().length, address, port);
+                        }
+                        serverSocket.send(packet);
+
                     }
                 }
 
