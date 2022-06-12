@@ -1,0 +1,14 @@
+C:\Users\filip\git\JavaEngineGameServer\exe\bin\Release\net5.0\win-x64\Checkers_Server.exe
+C:\Users\filip\git\JavaEngineGameServer\exe\bin\Release\net5.0\win-x64\Checkers_Server.deps.json
+C:\Users\filip\git\JavaEngineGameServer\exe\bin\Release\net5.0\win-x64\Checkers_Server.runtimeconfig.json
+C:\Users\filip\git\JavaEngineGameServer\exe\bin\Release\net5.0\win-x64\Checkers_Server.runtimeconfig.dev.json
+C:\Users\filip\git\JavaEngineGameServer\exe\bin\Release\net5.0\win-x64\Checkers_Server.dll
+C:\Users\filip\git\JavaEngineGameServer\exe\bin\Release\net5.0\win-x64\ref\Checkers_Server.dll
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.csproj.AssemblyReference.cache
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.AssemblyInfoInputs.cache
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.AssemblyInfo.cs
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.csproj.CoreCompileInputs.cache
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.dll
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\ref\Checkers_Server.dll
+C:\Users\filip\git\JavaEngineGameServer\exe\obj\Release\net5.0\win-x64\Checkers_Server.genruntimeconfig.cache
