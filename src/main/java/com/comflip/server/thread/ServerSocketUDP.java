@@ -111,8 +111,9 @@ public class ServerSocketUDP implements Runnable {
                         String checkerTag = dataMatch.split(":")[1];
                         String checkerPos = dataMatch.split(":")[2];
                         String nextTurn = dataMatch.split(":")[3];
+                        String tagEnemyChecker = dataMatch.split(":")[4];
 
-                        SessionTimer.hashSessionMatch.put(idMatch, checkerTag + ":" + checkerPos + ":" + nextTurn);
+                        SessionTimer.hashSessionMatch.put(idMatch, checkerTag + ":" + checkerPos + ":" + nextTurn + ":" + tagEnemyChecker);
 
                         packet = new DatagramPacket(dataMatch.getBytes(), dataMatch.getBytes().length, address, port);
                         serverSocket.send(packet);
